@@ -805,11 +805,19 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
             callType: callType,
             hasVideo: hasVideo,
             extra: extra
-        ) { success in
+        ) { [weak self] success in
             if success {
                 result(callId)
             } else {
-                result(FlutterError(code: "CALL_ERROR", message: "Failed to report incoming call", details: nil))
+                // CallKit failed (e.g., simulator) — fall back to notification
+                NSLog("[NotifyPilot] CallKit incoming call failed, falling back to notification")
+                self?.callNotificationHelper.showIncomingCallNotification(
+                    callId: callId,
+                    callerName: callerName ?? "Unknown",
+                    callerNumber: callerNumber
+                ) { _ in
+                    result(callId)
+                }
             }
         }
     }
@@ -832,11 +840,18 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
             callerName: callerName,
             callerNumber: callerNumber,
             callType: callType
-        ) { success in
+        ) { [weak self] success in
             if success {
                 result(callId)
             } else {
-                result(FlutterError(code: "CALL_ERROR", message: "Failed to start outgoing call", details: nil))
+                // CallKit failed (e.g., simulator) — fall back to notification
+                NSLog("[NotifyPilot] CallKit outgoing call failed, falling back to notification")
+                self?.callNotificationHelper.showOngoingCallNotification(
+                    callId: callId,
+                    callerName: callerName ?? "Unknown",
+                    duration: nil
+                )
+                result(callId)
             }
         }
     }
