@@ -1,31 +1,20 @@
 import Foundation
+
+#if canImport(ActivityKit)
 import ActivityKit
 
 /// Manages iOS Live Activities via ActivityKit.
-/// Supports starting, updating, ending, and querying Live Activities
-/// using GenericLiveActivityAttributes for Flutter interop.
 @available(iOS 16.2, *)
 class LiveActivityManager {
 
-    /// Callback invoked when a push token is updated for an activity.
-    /// Parameters: (activityId: String, pushToken: String)
     var onPushTokenUpdate: ((String, String) -> Void)?
+    var onActivityEvent: ((String, String, [String: Any]?) -> Void)?
 
-    /// Tracks active activities by their Flutter-assigned ID.
     private var activities: [String: Activity<GenericLiveActivityAttributes>] = [:]
-
-    /// Manages push tokens for each activity.
     private let pushTokenManager = PushTokenManager()
-
-    /// Data bridge for sharing data with Widget Extension.
     private var dataBridge: LiveActivityDataBridge?
-
-    /// Tasks monitoring push token updates per activity.
     private var tokenTasks: [String: Task<Void, Never>] = [:]
 
-    // MARK: - Init
-
-    /// Creates a new manager with an optional App Group ID for data bridging.
     init(appGroupId: String? = nil) {
         if let groupId = appGroupId {
             dataBridge = LiveActivityDataBridge(appGroupId: groupId)
@@ -34,282 +23,201 @@ class LiveActivityManager {
 
     // MARK: - Start
 
-    /// Starts a new Live Activity with the given parameters.
-    ///
-    /// - Parameters:
-    ///   - activityId: A unique identifier for tracking this activity.
-    ///   - type: The activity type string stored in attributes.
-    ///   - attributes: Static attribute data for the activity.
-    ///   - state: Initial content state data.
-    ///   - staleDate: Optional date after which the activity becomes stale.
-    /// - Returns: The activity ID on success, or nil on failure.
-    func start(
-        activityId: String,
-        type: String,
-        attributes: [String: Any],
-        state: [String: Any],
-        staleDate: Date? = nil
-    ) -> String? {
+    @available(iOS 16.2, *)
+    func startActivity(type: String, attributes: [String: Any],
+                       state: [String: Any], staleAfterMs: Int?,
+                       result: @escaping (Any?) -> Void) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
-            NSLog("[NotifyPilot] LiveActivityManager: Activities are not enabled")
-            return nil
+            NSLog("[NotifyPilot] Live Activities not enabled")
+            result(nil)
+            return
         }
 
         let activityAttributes = GenericLiveActivityAttributes(type: type)
         let contentState = GenericLiveActivityAttributes.ContentState(data: state)
 
-        let content = ActivityContent(
-            state: contentState,
-            staleDate: staleDate
-        )
+        var staleDate: Date? = nil
+        if let ms = staleAfterMs {
+            staleDate = Date().addingTimeInterval(Double(ms) / 1000.0)
+        }
+
+        let activityContent = ActivityContent(state: contentState, staleDate: staleDate)
 
         do {
             let activity = try Activity<GenericLiveActivityAttributes>.request(
                 attributes: activityAttributes,
-                content: content,
+                content: activityContent,
                 pushType: .token
             )
 
-            activities[activityId] = activity
+            activities[activity.id] = activity
 
-            // Write data to shared storage for Widget Extension
-            dataBridge?.writeAttributes(attributes, forActivityId: activityId)
-            dataBridge?.writeState(state, forActivityId: activityId)
+            dataBridge?.writeAttributes(attributes, forActivityId: activity.id)
+            dataBridge?.writeState(state, forActivityId: activity.id)
 
             // Monitor push token updates
-            monitorPushTokenUpdates(activityId: activityId, activity: activity)
+            let task = Task {
+                for await tokenData in activity.pushTokenUpdates {
+                    let token = tokenData.map { String(format: "%02x", $0) }.joined()
+                    self.pushTokenManager.setToken(token, forActivityId: activity.id)
+                    self.onPushTokenUpdate?(activity.id, token)
+                }
+            }
+            tokenTasks[activity.id] = task
 
-            NSLog("[NotifyPilot] LiveActivityManager: Started activity '\(activityId)'")
-            return activityId
+            NSLog("[NotifyPilot] Started Live Activity: \(activity.id)")
+            result(activity.id)
         } catch {
-            NSLog("[NotifyPilot] LiveActivityManager: Failed to start activity: \(error.localizedDescription)")
-            return nil
+            NSLog("[NotifyPilot] Failed to start Live Activity: \(error)")
+            result(nil)
         }
     }
 
     // MARK: - Update
 
-    /// Updates the content state of an existing Live Activity.
-    ///
-    /// - Parameters:
-    ///   - activityId: The identifier of the activity to update.
-    ///   - state: New content state data.
-    ///   - alertTitle: Optional title for the update alert.
-    ///   - alertBody: Optional body for the update alert.
-    func update(
-        activityId: String,
-        state: [String: Any],
-        alertTitle: String? = nil,
-        alertBody: String? = nil
-    ) async -> Bool {
+    @available(iOS 16.2, *)
+    func updateActivity(activityId: String, state: [String: Any],
+                        result: @escaping (Any?) -> Void) {
         guard let activity = activities[activityId] else {
-            NSLog("[NotifyPilot] LiveActivityManager: No active activity found for '\(activityId)'")
-            return false
+            result(false)
+            return
         }
 
         let contentState = GenericLiveActivityAttributes.ContentState(data: state)
+        let content = ActivityContent(state: contentState, staleDate: nil)
 
-        var alertConfig: AlertConfiguration? = nil
-        if let title = alertTitle, let body = alertBody {
-            alertConfig = AlertConfiguration(
-                title: LocalizedStringResource(stringLiteral: title),
-                body: LocalizedStringResource(stringLiteral: body),
-                sound: .default
-            )
-        }
-
-        let content = ActivityContent(
-            state: contentState,
-            staleDate: nil
-        )
-
-        do {
-            await activity.update(content, alertConfiguration: alertConfig)
-
-            // Update shared storage
-            dataBridge?.writeState(state, forActivityId: activityId)
-
-            NSLog("[NotifyPilot] LiveActivityManager: Updated activity '\(activityId)'")
-            return true
+        Task {
+            await activity.update(content)
+            self.dataBridge?.writeState(state, forActivityId: activityId)
+            result(true)
         }
     }
 
     // MARK: - End
 
-    /// Ends a specific Live Activity.
-    ///
-    /// - Parameters:
-    ///   - activityId: The identifier of the activity to end.
-    ///   - state: Optional final content state.
-    ///   - dismissPolicy: How the activity should be dismissed ("immediate" or "default").
-    func end(
-        activityId: String,
-        state: [String: Any]? = nil,
-        dismissPolicy: String = "default"
-    ) async -> Bool {
+    @available(iOS 16.2, *)
+    func endActivity(activityId: String, finalState: [String: Any]?,
+                     dismissPolicy: String, result: @escaping (Any?) -> Void) {
         guard let activity = activities[activityId] else {
-            NSLog("[NotifyPilot] LiveActivityManager: No active activity found for '\(activityId)'")
-            return false
+            result(false)
+            return
         }
-
-        let contentState: GenericLiveActivityAttributes.ContentState
-        if let stateData = state {
-            contentState = GenericLiveActivityAttributes.ContentState(data: stateData)
-        } else {
-            contentState = GenericLiveActivityAttributes.ContentState(data: [:])
-        }
-
-        let content = ActivityContent(
-            state: contentState,
-            staleDate: nil
-        )
 
         let policy: ActivityUIDismissalPolicy
         switch dismissPolicy {
-        case "immediate":
-            policy = .immediate
-        default:
-            policy = .default
+        case "immediate": policy = .immediate
+        default: policy = .default
         }
 
-        await activity.end(content, dismissalPolicy: policy)
+        Task {
+            if let state = finalState {
+                let contentState = GenericLiveActivityAttributes.ContentState(data: state)
+                let content = ActivityContent(state: contentState, staleDate: nil)
+                await activity.end(content, dismissalPolicy: policy)
+            } else {
+                await activity.end(nil, dismissalPolicy: policy)
+            }
 
-        // Clean up
-        cancelTokenMonitor(activityId: activityId)
-        pushTokenManager.removeToken(forActivityId: activityId)
-        dataBridge?.clear(forActivityId: activityId)
-        activities.removeValue(forKey: activityId)
+            self.tokenTasks[activityId]?.cancel()
+            self.tokenTasks.removeValue(forKey: activityId)
+            self.pushTokenManager.removeToken(forActivityId: activityId)
+            self.dataBridge?.clear(forActivityId: activityId)
+            self.activities.removeValue(forKey: activityId)
 
-        NSLog("[NotifyPilot] LiveActivityManager: Ended activity '\(activityId)'")
-        return true
+            result(true)
+        }
     }
 
-    /// Ends all active Live Activities.
-    func endAll() async {
-        for (activityId, activity) in activities {
-            let content = ActivityContent(
-                state: GenericLiveActivityAttributes.ContentState(data: [:]),
-                staleDate: nil
-            )
-            await activity.end(content, dismissalPolicy: .immediate)
+    @available(iOS 16.2, *)
+    func endAllActivities(type: String?, result: @escaping (Any?) -> Void) {
+        Task {
+            let toEnd = type != nil
+                ? activities.filter { GenericLiveActivityAttributes.self == GenericLiveActivityAttributes.self }
+                : activities
 
-            cancelTokenMonitor(activityId: activityId)
-            pushTokenManager.removeToken(forActivityId: activityId)
-            dataBridge?.clear(forActivityId: activityId)
+            for (activityId, activity) in toEnd {
+                await activity.end(nil, dismissalPolicy: .immediate)
+                tokenTasks[activityId]?.cancel()
+                tokenTasks.removeValue(forKey: activityId)
+                pushTokenManager.removeToken(forActivityId: activityId)
+                dataBridge?.clear(forActivityId: activityId)
+            }
+
+            if type == nil {
+                activities.removeAll()
+            } else {
+                for key in toEnd.keys {
+                    activities.removeValue(forKey: key)
+                }
+            }
+
+            result(true)
         }
-        activities.removeAll()
-
-        NSLog("[NotifyPilot] LiveActivityManager: Ended all activities")
     }
 
     // MARK: - Query
 
-    /// Returns whether Live Activities are supported on this device.
-    static var isSupported: Bool {
+    @available(iOS 16.2, *)
+    static func isSupported() -> Bool {
         return ActivityAuthorizationInfo().areActivitiesEnabled
     }
 
-    /// Returns whether the device has a Dynamic Island.
-    /// This is a best-effort check based on device model.
-    static var hasDynamicIsland: Bool {
-        // Devices with Dynamic Island: iPhone 14 Pro and later Pro models, iPhone 15 and later
-        // We check by seeing if the device name suggests a supported model.
-        // A more reliable approach is to check the hardware model string.
+    @available(iOS 16.2, *)
+    static func hasDynamicIsland() -> Bool {
         var systemInfo = utsname()
         uname(&systemInfo)
-        let modelCode = withUnsafePointer(to: &systemInfo.machine) {
+        let model = withUnsafePointer(to: &systemInfo.machine) {
             $0.withMemoryRebound(to: CChar.self, capacity: 1) {
                 String(validatingUTF8: $0)
             }
         }
-
-        guard let model = modelCode else { return false }
-
-        // iPhone 14 Pro (iPhone15,2), iPhone 14 Pro Max (iPhone15,3)
-        // iPhone 15 series (iPhone15,4/5, iPhone16,1/2)
-        // iPhone 16 series (iPhone17,x)
-        let dynamicIslandModels = [
-            "iPhone15,2", "iPhone15,3",       // 14 Pro, 14 Pro Max
-            "iPhone15,4", "iPhone15,5",       // 15, 15 Plus
-            "iPhone16,1", "iPhone16,2",       // 15 Pro, 15 Pro Max
-            "iPhone17,1", "iPhone17,2",       // 16 Pro, 16 Pro Max
-            "iPhone17,3", "iPhone17,4",       // 16, 16 Plus
-        ]
-
-        return dynamicIslandModels.contains(model)
+        guard let m = model else { return false }
+        let diModels = ["iPhone15,2","iPhone15,3","iPhone15,4","iPhone15,5",
+                        "iPhone16,1","iPhone16,2","iPhone17,1","iPhone17,2",
+                        "iPhone17,3","iPhone17,4"]
+        return diModels.contains(m)
     }
 
-    /// Returns a list of currently active activity IDs and their states.
-    func getActive() -> [[String: Any]] {
-        var result: [[String: Any]] = []
-
-        for (activityId, activity) in activities {
-            var info: [String: Any] = [
-                "activityId": activityId,
-                "state": activity.activityState.statusString,
-            ]
-
-            if let token = pushTokenManager.getToken(forActivityId: activityId) {
+    func getActiveActivities() -> [[String: Any]] {
+        return activities.map { (id, _) in
+            var info: [String: Any] = ["id": id, "type": "", "status": "active"]
+            if let token = pushTokenManager.getToken(forActivityId: id) {
                 info["pushToken"] = token
             }
-
-            result.append(info)
+            return info
         }
-
-        return result
     }
 
-    /// Returns the status of a specific activity.
-    func getStatus(activityId: String) -> String? {
-        guard let activity = activities[activityId] else { return nil }
-        return activity.activityState.statusString
+    func getActivityStatus(activityId: String) -> String {
+        guard activities[activityId] != nil else { return "ended" }
+        return "active"
     }
 
-    /// Returns the push token for a specific activity.
     func getPushToken(activityId: String) -> String? {
         return pushTokenManager.getToken(forActivityId: activityId)
     }
-
-    // MARK: - Private
-
-    /// Monitors push token updates for the given activity via an async Task.
-    private func monitorPushTokenUpdates(activityId: String, activity: Activity<GenericLiveActivityAttributes>) {
-        let task = Task {
-            for await tokenData in activity.pushTokenUpdates {
-                let token = PushTokenManager.hexString(from: tokenData)
-                self.pushTokenManager.setToken(token, forActivityId: activityId)
-                self.onPushTokenUpdate?(activityId, token)
-
-                NSLog("[NotifyPilot] LiveActivityManager: Push token updated for '\(activityId)'")
-            }
-        }
-        tokenTasks[activityId] = task
-    }
-
-    /// Cancels the push token monitoring task for the given activity.
-    private func cancelTokenMonitor(activityId: String) {
-        tokenTasks[activityId]?.cancel()
-        tokenTasks.removeValue(forKey: activityId)
-    }
 }
 
-// MARK: - ActivityState Extension
+#else
 
-@available(iOS 16.2, *)
-private extension ActivityState {
-    /// Returns a human-readable string representation of the activity state.
-    var statusString: String {
-        switch self {
-        case .active:
-            return "active"
-        case .ended:
-            return "ended"
-        case .dismissed:
-            return "dismissed"
-        case .stale:
-            return "stale"
-        @unknown default:
-            return "unknown"
-        }
-    }
+// Stub for platforms without ActivityKit
+class LiveActivityManager {
+    var onPushTokenUpdate: ((String, String) -> Void)?
+    var onActivityEvent: ((String, String, [String: Any]?) -> Void)?
+
+    func startActivity(type: String, attributes: [String: Any],
+                       state: [String: Any], staleAfterMs: Int?,
+                       result: @escaping (Any?) -> Void) { result(nil) }
+    func updateActivity(activityId: String, state: [String: Any],
+                        result: @escaping (Any?) -> Void) { result(false) }
+    func endActivity(activityId: String, finalState: [String: Any]?,
+                     dismissPolicy: String, result: @escaping (Any?) -> Void) { result(false) }
+    func endAllActivities(type: String?, result: @escaping (Any?) -> Void) { result(false) }
+    static func isSupported() -> Bool { return false }
+    static func hasDynamicIsland() -> Bool { return false }
+    func getActiveActivities() -> [[String: Any]] { return [] }
+    func getActivityStatus(activityId: String) -> String { return "ended" }
+    func getPushToken(activityId: String) -> String? { return nil }
 }
+
+#endif
