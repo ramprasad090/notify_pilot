@@ -12,7 +12,6 @@ topics:
   - push-notifications
   - fcm
   - local-notifications
-  - scheduled-notifications
   - live-activities
 
 environment:
