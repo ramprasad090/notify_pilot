@@ -201,7 +201,7 @@ class NotifyPilotPlugin :
             ?: call.argument<String>("largeIconUrl")
 
         @Suppress("UNCHECKED_CAST")
-        val actions = call.argument<List<Map<String, Any>>>("actions")
+        val actions = call.argument<List<Map<String, Any?>>>("actions")
 
         // v1.0.2: Read new parameters
         @Suppress("UNCHECKED_CAST")
@@ -487,8 +487,8 @@ class NotifyPilotPlugin :
     @Suppress("UNCHECKED_CAST")
     private fun handleStartLiveActivity(call: MethodCall, result: Result) {
         val type = call.argument<String>("type") ?: "live"
-        val config = call.argument<Map<String, Any>>("androidConfig") ?: emptyMap()
-        val state = call.argument<Map<String, Any>>("state") ?: emptyMap()
+        val config = call.argument<Map<String, Any?>>("androidConfig") ?: emptyMap()
+        val state = call.argument<Map<String, Any?>>("state") ?: emptyMap()
         val activityId = "${type}_${System.currentTimeMillis()}"
         liveNotificationManager?.startLiveNotification(activityId, config + mapOf("type" to type), state)
         result.success(activityId)
@@ -497,7 +497,7 @@ class NotifyPilotPlugin :
     @Suppress("UNCHECKED_CAST")
     private fun handleUpdateLiveActivity(call: MethodCall, result: Result) {
         val activityId = call.argument<String>("activityId") ?: ""
-        val state = call.argument<Map<String, Any>>("state") ?: emptyMap()
+        val state = call.argument<Map<String, Any?>>("state") ?: emptyMap()
         liveNotificationManager?.updateLiveNotification(activityId, state)
         result.success(true)
     }
