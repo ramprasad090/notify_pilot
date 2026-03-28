@@ -167,6 +167,7 @@ class NotifyPilot {
       'channelId': resolvedChannel.id,
       'channelName': resolvedChannel.name,
       'channelImportance': resolvedChannel.importance.index,
+      'channelType': resolvedChannel.channelType.name,
       'group': group,
       'deepLink': deepLink,
       'payload': payload,
