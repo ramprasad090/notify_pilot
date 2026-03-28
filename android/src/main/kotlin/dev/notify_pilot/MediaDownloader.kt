@@ -89,16 +89,35 @@ object MediaDownloader {
 
     private fun downloadBitmap(url: String): Bitmap? {
         return try {
-            val connection = URL(url).openConnection() as HttpURLConnection
-            connection.connectTimeout = 10_000
-            connection.readTimeout = 10_000
-            connection.doInput = true
-            connection.connect()
-            val inputStream = connection.inputStream
-            BitmapFactory.decodeStream(inputStream).also {
-                inputStream.close()
-                connection.disconnect()
+            var currentUrl = url
+            var redirectCount = 0
+            while (redirectCount < 5) {
+                val connection = URL(currentUrl).openConnection() as HttpURLConnection
+                connection.connectTimeout = 10_000
+                connection.readTimeout = 10_000
+                connection.instanceFollowRedirects = true
+                connection.doInput = true
+                connection.connect()
+
+                val responseCode = connection.responseCode
+                if (responseCode in 300..399) {
+                    val location = connection.getHeaderField("Location")
+                    connection.disconnect()
+                    if (location != null) {
+                        currentUrl = location
+                        redirectCount++
+                        continue
+                    }
+                    return null
+                }
+
+                val inputStream = connection.inputStream
+                return BitmapFactory.decodeStream(inputStream).also {
+                    inputStream.close()
+                    connection.disconnect()
+                }
             }
+            null
         } catch (_: Exception) {
             null
         }

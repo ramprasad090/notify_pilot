@@ -80,9 +80,15 @@ class MediaDownloader {
             }
 
             do {
+                // UNNotificationAttachment moves the file, so copy to a temp path first
+                // to preserve the cache
+                let tempDir = FileManager.default.temporaryDirectory
+                let tempFile = tempDir.appendingPathComponent(UUID().uuidString + "." + (localURL.pathExtension.isEmpty ? "jpg" : localURL.pathExtension))
+                try FileManager.default.copyItem(at: localURL, to: tempFile)
+
                 let attachment = try UNNotificationAttachment(
                     identifier: UUID().uuidString,
-                    url: localURL,
+                    url: tempFile,
                     options: nil
                 )
                 completion(attachment)
