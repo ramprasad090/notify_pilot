@@ -227,7 +227,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
     private func handleInitialize(args: [String: Any], result: @escaping FlutterResult) {
         // Deliver launch notification if one was stored
         if let response = launchNotificationResponse {
-            let (eventType, var eventData) = actionHandler.extractEvent(from: response)
+            var (eventType, eventData) = actionHandler.extractEvent(from: response)
             if eventType == "onTap" {
                 eventData["launchedApp"] = true
                 channel?.invokeMethod(eventType, arguments: eventData)
