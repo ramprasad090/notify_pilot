@@ -190,27 +190,51 @@ class NotificationDisplayManager {
         }
 
         // Process displayStyle (v1.0.2)
-        NSLog("[NotifyPilot] displayStyle raw: \(String(describing: args["displayStyle"]))")
         if let displayStyle = args["displayStyle"] as? [String: Any],
            let dsType = displayStyle["type"] as? String {
-            NSLog("[NotifyPilot] displayStyle type: \(dsType)")
             switch dsType {
             case "bigPicture":
-                NSLog("[NotifyPilot] bigPicture picture raw: \(String(describing: displayStyle["picture"]))")
                 if let pictureMap = displayStyle["picture"] as? [String: Any],
                    let urlString = pictureMap["url"] as? String,
                    let url = URL(string: urlString) {
-                    NSLog("[NotifyPilot] Downloading bigPicture from: \(urlString)")
-                    mediaDownloader.downloadAttachment(from: url) { attachment in
-                        NSLog("[NotifyPilot] bigPicture attachment: \(String(describing: attachment))")
-                        if let attachment = attachment {
+                    // Download on background, then set attachment and complete
+                    let task = URLSession.shared.downloadTask(with: url) { localURL, response, error in
+                        guard let localURL = localURL, error == nil else {
+                            print("[NotifyPilot] BigPicture download failed: \(error?.localizedDescription ?? "unknown")")
+                            completion(content)
+                            return
+                        }
+
+                        // Determine extension from MIME
+                        var ext = ".jpg"
+                        if let mime = response?.mimeType {
+                            switch mime {
+                            case "image/png": ext = ".png"
+                            case "image/gif": ext = ".gif"
+                            default: ext = ".jpg"
+                            }
+                        }
+
+                        let tempDir = FileManager.default.temporaryDirectory
+                        let tempFile = tempDir.appendingPathComponent(UUID().uuidString + ext)
+
+                        do {
+                            try FileManager.default.copyItem(at: localURL, to: tempFile)
+                            let attachment = try UNNotificationAttachment(
+                                identifier: UUID().uuidString,
+                                url: tempFile,
+                                options: nil
+                            )
                             content.attachments = [attachment]
+                            print("[NotifyPilot] BigPicture attachment set OK")
+                        } catch {
+                            print("[NotifyPilot] BigPicture attachment error: \(error)")
                         }
                         completion(content)
                     }
-                    return // async path - completion called above
+                    task.resume()
+                    return
                 }
-                NSLog("[NotifyPilot] bigPicture: failed to extract picture URL")
             case "bigText":
                 // iOS shows full text naturally in expanded notification view
                 if let bigText = displayStyle["bigText"] as? String {
