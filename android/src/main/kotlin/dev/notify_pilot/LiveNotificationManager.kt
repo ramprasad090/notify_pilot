@@ -6,25 +6,26 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
-import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 
 /**
- * Manages ongoing notifications with custom RemoteViews layouts,
- * serving as the Android equivalent of iOS Live Activities.
+ * Manages ongoing notifications as the Android equivalent of iOS Live Activities.
+ *
+ * Uses standard NotificationCompat with content text built from state data,
+ * providing a reliable cross-device experience.
  */
 class LiveNotificationManager(private val context: Context) {
 
     companion object {
         private const val LIVE_CHANNEL_ID = "notify_pilot_live"
         private const val LIVE_CHANNEL_NAME = "Live Notifications"
-        private val mainHandler = Handler(Looper.getMainLooper())
     }
 
     /** Cached config per notification string id. */
     private val configCache = mutableMapOf<String, Map<String, Any?>>()
+
+    /** Cached state per notification string id. */
+    private val stateCache = mutableMapOf<String, Map<String, Any?>>()
 
     /** Tracks active live notification string ids. */
     private val activeLiveIds = mutableSetOf<String>()
@@ -37,41 +38,13 @@ class LiveNotificationManager(private val context: Context) {
     }
 
     /**
-     * Creates an ongoing notification with a custom or default RemoteViews layout.
-     *
-     * @param id String identifier for this live notification
-     * @param config Configuration map with keys: title, type, customLayoutName
-     * @param state State map with data to populate the layout (title, subtitle, eta, progress, etc.)
+     * Creates an ongoing notification populated from state data.
      */
     fun startLiveNotification(id: String, config: Map<String, Any?>, state: Map<String, Any?>): String {
         configCache[id] = config
+        stateCache[id] = state
         activeLiveIds.add(id)
-
-        val notificationId = id.hashCode()
-        val customLayoutName = config["customLayoutName"] as? String
-        val title = state["title"] as? String ?: config["title"] as? String ?: ""
-
-        val remoteViews = if (customLayoutName != null) {
-            buildCustomLayout(customLayoutName, state)
-        } else {
-            RemoteViewsBuilder.buildDefaultLayout(context, state)
-        }
-
-        val tapIntent = buildTapIntent(id, state)
-
-        val builder = NotificationCompat.Builder(context, LIVE_CHANNEL_ID)
-            .setSmallIcon(getSmallIconResId())
-            .setContentTitle(title)
-            .setCustomContentView(remoteViews)
-            .setCustomBigContentView(remoteViews)
-            .setOngoing(true)
-            .setOnlyAlertOnce(false)
-            .setAutoCancel(false)
-            .setContentIntent(tapIntent)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
-
-        notificationManager.notify(notificationId, builder.build())
+        showNotification(id, config, state, alertOnce = false)
         return id
     }
 
@@ -84,55 +57,25 @@ class LiveNotificationManager(private val context: Context) {
 
     /**
      * Updates an existing live notification without re-alerting the user.
-     *
-     * @param id String identifier for the live notification
-     * @param state Updated state map
      */
     fun updateLiveNotification(id: String, state: Map<String, Any?>) {
         val config = configCache[id] ?: return
-        val notificationId = id.hashCode()
-        val customLayoutName = config["customLayoutName"] as? String
-        val title = state["title"] as? String ?: config["title"] as? String ?: ""
-
-        val remoteViews = if (customLayoutName != null) {
-            buildCustomLayout(customLayoutName, state)
-        } else {
-            RemoteViewsBuilder.buildDefaultLayout(context, state)
-        }
-
-        val tapIntent = buildTapIntent(id, state)
-
-        val builder = NotificationCompat.Builder(context, LIVE_CHANNEL_ID)
-            .setSmallIcon(getSmallIconResId())
-            .setContentTitle(title)
-            .setCustomContentView(remoteViews)
-            .setCustomBigContentView(remoteViews)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setAutoCancel(false)
-            .setContentIntent(tapIntent)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
-
-        notificationManager.notify(notificationId, builder.build())
+        stateCache[id] = state
+        showNotification(id, config, state, alertOnce = true)
     }
 
     /**
      * Cancels a specific live notification.
-     *
-     * @param id String identifier for the live notification
      */
     fun endLiveNotification(id: String) {
-        val notificationId = id.hashCode()
-        notificationManager.cancel(notificationId)
+        notificationManager.cancel(id.hashCode())
         configCache.remove(id)
+        stateCache.remove(id)
         activeLiveIds.remove(id)
     }
 
     /**
      * Cancels all live notifications matching the given type.
-     *
-     * @param type The type string from the config to match against
      */
     fun endAllLiveNotifications(type: String?) {
         val idsToRemove = if (type != null) {
@@ -147,34 +90,106 @@ class LiveNotificationManager(private val context: Context) {
         idsToRemove.forEach { id ->
             notificationManager.cancel(id.hashCode())
             configCache.remove(id)
+            stateCache.remove(id)
         }
         activeLiveIds.removeAll(idsToRemove.toSet())
     }
 
     /**
-     * Returns a list of currently active live notifications with their ids and configs.
+     * Returns a list of currently active live notifications.
      */
     fun getActiveLiveNotifications(): List<Map<String, Any?>> {
         return activeLiveIds.map { id ->
             mapOf(
                 "id" to id,
-                "notificationId" to id.hashCode(),
-                "config" to (configCache[id] ?: emptyMap<String, Any?>())
+                "type" to (configCache[id]?.get("type") as? String ?: ""),
+                "state" to (stateCache[id] ?: emptyMap<String, Any?>()),
+                "status" to "active",
+                "startedAt" to System.currentTimeMillis(),
             )
         }
     }
 
-    /**
-     * Always returns "supported" on Android.
-     */
-    fun isLiveActivitySupported(): String = "supported"
-
-    /**
-     * Always returns false on Android (Dynamic Island is an iOS feature).
-     */
-    fun hasDynamicIsland(): Boolean = false
-
     // region Private helpers
+
+    private fun showNotification(
+        id: String,
+        config: Map<String, Any?>,
+        state: Map<String, Any?>,
+        alertOnce: Boolean
+    ) {
+        val notificationId = id.hashCode()
+        val type = config["type"] as? String ?: id
+
+        // Build title and body from state data
+        val title = buildTitle(type, config, state)
+        val body = buildBody(type, state)
+        val progress = (state["progress"] as? Number)?.toDouble() ?: -1.0
+
+        val builder = NotificationCompat.Builder(context, LIVE_CHANNEL_ID)
+            .setSmallIcon(getSmallIconResId())
+            .setContentTitle(title)
+            .setContentText(body)
+            .setOngoing(true)
+            .setOnlyAlertOnce(alertOnce)
+            .setAutoCancel(false)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+
+        // Show progress bar if progress is available
+        if (progress in 0.0..1.0) {
+            builder.setProgress(100, (progress * 100).toInt(), false)
+        }
+
+        // Expanded text with all state info
+        val expandedText = state.entries
+            .filter { it.key != "progress" }
+            .joinToString("\n") { "${formatKey(it.key)}: ${it.value}" }
+        if (expandedText.isNotEmpty()) {
+            builder.setStyle(NotificationCompat.BigTextStyle().bigText(expandedText))
+        }
+
+        notificationManager.notify(notificationId, builder.build())
+    }
+
+    private fun buildTitle(type: String, config: Map<String, Any?>, state: Map<String, Any?>): String {
+        // Use status or type as title context
+        val status = state["status"] as? String
+        val eta = state["eta"] as? String
+
+        return when {
+            // Ride tracking: "Arriving - 5 min"
+            status != null && eta != null -> "${status.replaceFirstChar { it.uppercase() }} — $eta"
+            // Has ETA: "ETA: 5 min"
+            eta != null -> "ETA: $eta"
+            // Has status: "Arriving"
+            status != null -> status.replaceFirstChar { it.uppercase() }
+            // Fallback to type
+            else -> type.replace("_", " ").replaceFirstChar { it.uppercase() }
+        }
+    }
+
+    private fun buildBody(type: String, state: Map<String, Any?>): String {
+        val parts = mutableListOf<String>()
+
+        // Common fields
+        (state["distance"] as? String)?.let { parts.add(it) }
+        (state["deliveryPerson"] as? String)?.let { parts.add("by $it") }
+        (state["homeScore"] as? String)?.let { home ->
+            val away = state["awayScore"] as? String ?: ""
+            parts.add("$home vs $away")
+        }
+        (state["overs"] as? String)?.let { parts.add("Ov: $it") }
+
+        return if (parts.isNotEmpty()) parts.joinToString(" • ") else ""
+    }
+
+    private fun formatKey(key: String): String {
+        return key.replace(Regex("([A-Z])"), " $1")
+            .replaceFirstChar { it.uppercase() }
+            .trim()
+    }
 
     private fun ensureLiveChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -190,30 +205,6 @@ class LiveNotificationManager(private val context: Context) {
         }
 
         notificationManager.createNotificationChannel(channel)
-    }
-
-    private fun buildCustomLayout(layoutName: String, state: Map<String, Any?>): RemoteViews {
-        val layoutResId = context.resources.getIdentifier(
-            layoutName, "layout", context.packageName
-        )
-        val views = if (layoutResId != 0) {
-            RemoteViews(context.packageName, layoutResId)
-        } else {
-            // Fall back to default layout if custom layout not found
-            return RemoteViewsBuilder.buildDefaultLayout(context, state)
-        }
-        RemoteViewsBuilder.populateRemoteViews(views, state)
-        return views
-    }
-
-    private fun buildTapIntent(id: String, state: Map<String, Any?>): PendingIntent {
-        val intent = Intent(context, ActionHandler::class.java).apply {
-            action = "dev.notify_pilot.LIVE_TAP"
-            putExtra("live_notification_id", id)
-            putExtra("payload", state["payload"] as? String)
-        }
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        return PendingIntent.getBroadcast(context, id.hashCode(), intent, flags)
     }
 
     private fun getSmallIconResId(): Int {
