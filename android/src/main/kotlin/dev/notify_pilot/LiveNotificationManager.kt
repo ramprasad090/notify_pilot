@@ -118,39 +118,44 @@ class LiveNotificationManager(private val context: Context) {
         state: Map<String, Any?>,
         alertOnce: Boolean
     ) {
-        val notificationId = id.hashCode()
-        val type = config["type"] as? String ?: id
+        try {
+            val notificationId = id.hashCode()
+            val type = config["type"] as? String ?: id
 
-        // Build title and body from state data
-        val title = buildTitle(type, config, state)
-        val body = buildBody(type, state)
-        val progress = (state["progress"] as? Number)?.toDouble() ?: -1.0
+            // Build title and body from state data
+            val title = buildTitle(type, config, state)
+            val body = buildBody(type, state)
+            val progress = (state["progress"] as? Number)?.toDouble() ?: -1.0
 
-        val builder = NotificationCompat.Builder(context, LIVE_CHANNEL_ID)
-            .setSmallIcon(getSmallIconResId())
-            .setContentTitle(title)
-            .setContentText(body)
-            .setOngoing(true)
-            .setOnlyAlertOnce(alertOnce)
-            .setAutoCancel(false)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            val builder = NotificationCompat.Builder(context, LIVE_CHANNEL_ID)
+                .setSmallIcon(getSmallIconResId())
+                .setContentTitle(title)
+                .setContentText(body)
+                .setOngoing(true)
+                .setOnlyAlertOnce(alertOnce)
+                .setAutoCancel(false)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_STATUS)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
-        // Show progress bar if progress is available
-        if (progress in 0.0..1.0) {
-            builder.setProgress(100, (progress * 100).toInt(), false)
+            // Show progress bar if progress is available
+            if (progress in 0.0..1.0) {
+                builder.setProgress(100, (progress * 100).toInt(), false)
+            }
+
+            // Expanded text with all state info
+            val expandedText = state.entries
+                .filter { it.key != "progress" }
+                .joinToString("\n") { "${formatKey(it.key)}: ${it.value}" }
+            if (expandedText.isNotEmpty()) {
+                builder.setStyle(NotificationCompat.BigTextStyle().bigText(expandedText))
+            }
+
+            notificationManager.notify(notificationId, builder.build())
+            android.util.Log.d("NotifyPilot", "Live notification shown: id=$notificationId title=$title")
+        } catch (e: Exception) {
+            android.util.Log.e("NotifyPilot", "Failed to show live notification: ${e.message}", e)
         }
-
-        // Expanded text with all state info
-        val expandedText = state.entries
-            .filter { it.key != "progress" }
-            .joinToString("\n") { "${formatKey(it.key)}: ${it.value}" }
-        if (expandedText.isNotEmpty()) {
-            builder.setStyle(NotificationCompat.BigTextStyle().bigText(expandedText))
-        }
-
-        notificationManager.notify(notificationId, builder.build())
     }
 
     private fun buildTitle(type: String, config: Map<String, Any?>, state: Map<String, Any?>): String {
