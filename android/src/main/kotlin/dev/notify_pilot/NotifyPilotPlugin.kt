@@ -577,7 +577,8 @@ class NotifyPilotPlugin :
         val callerAvatarMap = call.argument<Map<String, Any?>>("callerAvatar")
         val callerAvatar = callerAvatarMap?.get("url") as? String
         val callType = call.argument<String>("callType")
-        val ringtone = call.argument<String>("ringtone")
+        val ringtoneMap = call.argument<Map<String, Any?>>("ringtone")
+        val ringtone = ringtoneMap?.get("name") as? String
         val timeoutMs = call.argument<Number>("timeoutMs")?.toLong() ?: 0L
         val acceptText = call.argument<String>("acceptText")
         val declineText = call.argument<String>("declineText")
