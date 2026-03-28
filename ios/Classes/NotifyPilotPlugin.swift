@@ -307,7 +307,8 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
     private func handleScheduleAfter(args: [String: Any], result: @escaping FlutterResult) {
         let notifId = args["id"] as? Int ?? Int.random(in: 1...Int.max)
         let identifier = String(notifId)
-        let seconds = args["seconds"] as? Double ?? 0
+        let delayMs = args["delayMillis"] as? Double ?? 0
+        let seconds = delayMs / 1000.0
 
         guard let trigger = scheduleManager.createTimeIntervalTrigger(seconds: seconds) else {
             result(FlutterError(code: "INVALID_DELAY", message: "Delay must be greater than 0", details: nil))

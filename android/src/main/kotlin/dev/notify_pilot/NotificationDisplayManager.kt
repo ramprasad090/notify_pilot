@@ -77,14 +77,34 @@ class NotificationDisplayManager(private val context: Context) {
         // Download images on a background thread, then build notification on main thread
         executor.execute {
             val imageBitmap = imageUrl?.let { downloadBitmap(it) }
-            val largeIconBitmap = largeIconUrl?.let { downloadBitmap(it) }
+            var largeIconBitmap = largeIconUrl?.let { downloadBitmap(it) }
+
+            // Pre-download displayStyle images on background thread
+            var displayStyleBitmap: Bitmap? = null
+            if (displayStyleMap != null) {
+                val dsType = displayStyleMap["type"] as? String
+                if (dsType == "bigPicture") {
+                    val pictureMap = displayStyleMap["picture"] as? Map<*, *>
+                    val pictureUrl = pictureMap?.get("url") as? String
+                    if (pictureUrl != null) {
+                        displayStyleBitmap = downloadBitmap(pictureUrl)
+                    }
+                }
+                // Also resolve large icon from displayStyle
+                val dsLargeIconMap = displayStyleMap["largeIcon"] as? Map<*, *>
+                val dsLargeIconUrl = dsLargeIconMap?.get("url") as? String
+                if (dsLargeIconUrl != null && largeIconBitmap == null) {
+                    largeIconBitmap = downloadBitmap(dsLargeIconUrl)
+                }
+            }
 
             mainHandler.post {
                 buildAndNotify(
                     id, title, body, effectiveChannelId, groupKey,
                     imageBitmap, largeIconBitmap, deepLink, payload,
                     actions, autoCancel, ongoing, silent, summary, inboxLines,
-                    displayStyleMap, soundMap, fullscreen, turnScreenOn
+                    displayStyleMap, soundMap, fullscreen, turnScreenOn,
+                    displayStyleBitmap
                 )
             }
         }
@@ -109,7 +129,8 @@ class NotificationDisplayManager(private val context: Context) {
         displayStyleMap: Map<String, Any?>? = null,
         soundMap: Map<String, Any?>? = null,
         fullscreen: Boolean = false,
-        turnScreenOn: Boolean = false
+        turnScreenOn: Boolean = false,
+        displayStyleBitmap: Bitmap? = null
     ) {
         val tapIntent = buildTapIntent(id, title, body, deepLink, payload, groupKey)
 
@@ -144,7 +165,7 @@ class NotificationDisplayManager(private val context: Context) {
         // Apply displayStyle from Dart if provided (takes precedence over legacy styles)
         var styleApplied = false
         if (displayStyleMap != null) {
-            styleApplied = applyDisplayStyle(builder, displayStyleMap)
+            styleApplied = applyDisplayStyle(builder, displayStyleMap, displayStyleBitmap)
         }
 
         if (!styleApplied) {
@@ -215,7 +236,8 @@ class NotificationDisplayManager(private val context: Context) {
     @Suppress("UNCHECKED_CAST")
     private fun applyDisplayStyle(
         builder: NotificationCompat.Builder,
-        displayStyleMap: Map<String, Any?>
+        displayStyleMap: Map<String, Any?>,
+        preDownloadedBitmap: Bitmap? = null
     ): Boolean {
         val type = displayStyleMap["type"] as? String ?: return false
 
@@ -228,14 +250,8 @@ class NotificationDisplayManager(private val context: Context) {
                 builder.setStyle(style)
             }
             "bigPicture" -> {
-                val pictureMap = displayStyleMap["picture"] as? Map<String, Any?>
                 val summaryText = displayStyleMap["summaryText"] as? String
-                val bitmap: Bitmap? = if (pictureMap != null) {
-                    // Use StyleBuilder.resolveImage for flexible image resolution
-                    StyleBuilder.resolveImage(context, pictureMap)
-                } else {
-                    null
-                }
+                val bitmap = preDownloadedBitmap
                 if (bitmap == null) return false
                 val style = NotificationCompat.BigPictureStyle().bigPicture(bitmap)
                 if (summaryText != null) style.setSummaryText(summaryText)
