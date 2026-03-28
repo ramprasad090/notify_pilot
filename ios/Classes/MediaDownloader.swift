@@ -13,7 +13,7 @@ class MediaDownloader {
     /// Cache directory for downloaded media.
     private let cacheDirectory: URL
 
-    private init() {
+    init() {
         let tempDir = FileManager.default.temporaryDirectory
         cacheDirectory = tempDir.appendingPathComponent("dev.notify_pilot.media_cache", isDirectory: true)
 

@@ -537,7 +537,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
 
     // MARK: - Live Activity Handlers
 
-    private func getOrCreateLiveActivityManager() -> LiveActivityManager? {
+    private func getOrCreateLiveActivityManager() -> Any? {
         if #available(iOS 16.2, *) {
             if liveActivityManager == nil {
                 let manager = LiveActivityManager()

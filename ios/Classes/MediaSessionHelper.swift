@@ -13,7 +13,7 @@ class MediaSessionHelper {
 
     private let infoCenter = MPNowPlayingInfoCenter.default()
 
-    private init() {}
+    init() {}
 
     // MARK: - Now Playing Info
 

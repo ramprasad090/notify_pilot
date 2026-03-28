@@ -57,7 +57,6 @@ class CriticalAlertHelper {
     ///   - name: The sound file name (without extension for system sounds).
     ///   - volume: The volume level from 0.0 to 1.0. Defaults to 1.0.
     /// - Returns: A critical notification sound.
-    @available(iOS 12.0, *)
     func criticalSound(named name: String, volume: Float = 1.0) -> UNNotificationSound? {
         guard !name.isEmpty else { return nil }
         return UNNotificationSound.criticalSoundNamed(
@@ -67,7 +66,6 @@ class CriticalAlertHelper {
     }
 
     /// Creates a default critical alert sound at the given volume.
-    @available(iOS 12.0, *)
     func defaultCriticalSound(volume: Float = 1.0) -> UNNotificationSound {
         return UNNotificationSound.defaultCritical
     }

@@ -131,9 +131,7 @@ class LiveActivityManager {
     @available(iOS 16.2, *)
     func endAllActivities(type: String?, result: @escaping (Any?) -> Void) {
         Task {
-            let toEnd = type != nil
-                ? activities.filter { GenericLiveActivityAttributes.self == GenericLiveActivityAttributes.self }
-                : activities
+            let toEnd = activities
 
             for (activityId, activity) in toEnd {
                 await activity.end(nil, dismissalPolicy: .immediate)
