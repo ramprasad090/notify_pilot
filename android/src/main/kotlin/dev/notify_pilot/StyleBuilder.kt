@@ -107,10 +107,11 @@ object StyleBuilder {
             .setName(userName)
             .build()
 
-        val messagingStyle = NotificationCompat.MessagingStyle(userPerson).apply {
-            if (conversationTitle != null) this.conversationTitle = conversationTitle
-            this.isGroupConversation = isGroupConversation
+        val messagingStyle = NotificationCompat.MessagingStyle(userPerson)
+        if (conversationTitle != null) {
+            messagingStyle.setConversationTitle(conversationTitle)
         }
+        messagingStyle.setGroupConversation(isGroupConversation)
 
         messages.forEach { messageMap ->
             val text = messageMap["text"] as? String ?: return@forEach
@@ -121,6 +122,7 @@ object StyleBuilder {
                 val personBuilder = Person.Builder().setName(senderName)
 
                 // Optional sender icon
+                @Suppress("UNCHECKED_CAST")
                 val iconMap = messageMap["icon"] as? Map<String, Any?>
                 if (iconMap != null) {
                     val iconBitmap = resolveImage(context, iconMap)

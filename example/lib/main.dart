@@ -47,6 +47,9 @@ void main() async {
     history: const HistoryConfig(enabled: true, maxEntries: 100),
   );
 
+  // Request notification permission (Android 13+ / iOS)
+  await NotifyPilot.requestPermission();
+
   runApp(const NotifyPilotExample());
 }
 

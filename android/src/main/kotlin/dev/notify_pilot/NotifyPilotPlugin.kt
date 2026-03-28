@@ -33,8 +33,6 @@ class NotifyPilotPlugin :
     private lateinit var scheduleManager: ScheduleManager
     private lateinit var historyStore: HistoryStore
     private var liveNotificationManager: LiveNotificationManager? = null
-    private var alarmChannelHelper: AlarmChannelHelper? = null
-    private var styleBuilder: StyleBuilder? = null
     private var mediaSessionHelper: MediaSessionHelper? = null
     private var callNotificationManager: CallNotificationManager? = null
 
@@ -79,8 +77,6 @@ class NotifyPilotPlugin :
         scheduleManager = ScheduleManager(binding.applicationContext)
         historyStore = HistoryStore(binding.applicationContext)
         liveNotificationManager = LiveNotificationManager(binding.applicationContext)
-        alarmChannelHelper = AlarmChannelHelper(binding.applicationContext)
-        styleBuilder = StyleBuilder(binding.applicationContext)
         mediaSessionHelper = MediaSessionHelper(binding.applicationContext)
         callNotificationManager = CallNotificationManager(binding.applicationContext)
         callNotificationManager?.onCallEvent = { callId, event, data ->
@@ -183,16 +179,26 @@ class NotifyPilotPlugin :
         val title = call.argument<String>("title")
         val body = call.argument<String>("body")
         val channelId = call.argument<String>("channelId")
-        val groupKey = call.argument<String>("groupKey")
-        val imageUrl = call.argument<String>("imageUrl")
-        val largeIconUrl = call.argument<String>("largeIconUrl")
+        val groupKey = call.argument<String>("group")
+        val imageUrl = call.argument<String>("image")
         val deepLink = call.argument<String>("deepLink")
-        val payload = call.argument<String>("payload")
+        // payload can be sent as Map or String from Dart
+        val payloadRaw = call.argument<Any>("payload")
+        val payload: String? = when (payloadRaw) {
+            is String -> payloadRaw
+            is Map<*, *> -> org.json.JSONObject(payloadRaw as Map<String, Any?>).toString()
+            else -> null
+        }
         val autoCancel = call.argument<Boolean>("autoCancel") ?: true
-        val ongoing = call.argument<Boolean>("ongoing") ?: false
+        val ongoingFlag = call.argument<Boolean>("ongoing") ?: false
         val silent = call.argument<Boolean>("silent") ?: false
         val summary = call.argument<String>("summary")
         val inboxLines = call.argument<List<String>>("inboxLines")
+
+        // v1.0.2: new fields (read but passed to displayManager as available)
+        val largeIconMap = call.argument<Map<String, Any?>>("largeIcon")
+        val largeIconUrl = largeIconMap?.get("url") as? String
+            ?: call.argument<String>("largeIconUrl")
 
         @Suppress("UNCHECKED_CAST")
         val actions = call.argument<List<Map<String, Any>>>("actions")
@@ -201,7 +207,7 @@ class NotifyPilotPlugin :
             id = id, title = title, body = body, channelId = channelId,
             groupKey = groupKey, imageUrl = imageUrl, largeIconUrl = largeIconUrl,
             deepLink = deepLink, payload = payload, actions = actions,
-            autoCancel = autoCancel, ongoing = ongoing, silent = silent,
+            autoCancel = autoCancel, ongoing = ongoingFlag, silent = silent,
             summary = summary, inboxLines = inboxLines
         )
 
@@ -211,7 +217,7 @@ class NotifyPilotPlugin :
             groupKey = groupKey, deepLink = deepLink, payload = payload
         )
 
-        result.success(true)
+        result.success(id)
     }
 
     private fun handleScheduleAt(call: MethodCall, result: Result) {
