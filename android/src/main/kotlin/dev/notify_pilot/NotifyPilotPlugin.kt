@@ -203,12 +203,24 @@ class NotifyPilotPlugin :
         @Suppress("UNCHECKED_CAST")
         val actions = call.argument<List<Map<String, Any>>>("actions")
 
+        // v1.0.2: Read new parameters
+        @Suppress("UNCHECKED_CAST")
+        val displayStyle = call.argument<Map<String, Any?>>("displayStyle")
+        val soundMap = call.argument<Map<String, Any?>>("sound")
+        val iconMap = call.argument<Map<String, Any?>>("icon")
+        val fullscreen = call.argument<Boolean>("fullscreen") ?: false
+        val turnScreenOn = call.argument<Boolean>("turnScreenOn") ?: false
+
         displayManager.show(
             id = id, title = title, body = body, channelId = channelId,
             groupKey = groupKey, imageUrl = imageUrl, largeIconUrl = largeIconUrl,
             deepLink = deepLink, payload = payload, actions = actions,
             autoCancel = autoCancel, ongoing = ongoingFlag, silent = silent,
-            summary = summary, inboxLines = inboxLines
+            summary = summary, inboxLines = inboxLines,
+            displayStyleMap = displayStyle,
+            soundMap = soundMap,
+            fullscreen = fullscreen,
+            turnScreenOn = turnScreenOn,
         )
 
         // Record in history
@@ -474,11 +486,12 @@ class NotifyPilotPlugin :
 
     @Suppress("UNCHECKED_CAST")
     private fun handleStartLiveActivity(call: MethodCall, result: Result) {
-        val id = call.argument<String>("type") ?: "live"
+        val type = call.argument<String>("type") ?: "live"
         val config = call.argument<Map<String, Any>>("androidConfig") ?: emptyMap()
         val state = call.argument<Map<String, Any>>("state") ?: emptyMap()
-        val activityId = liveNotificationManager?.startLiveNotification(id, config, state)
-        result.success(activityId ?: id)
+        val activityId = "${type}_${System.currentTimeMillis()}"
+        liveNotificationManager?.startLiveNotification(activityId, config + mapOf("type" to type), state)
+        result.success(activityId)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -561,7 +574,8 @@ class NotifyPilotPlugin :
         }
         val callerName = call.argument<String>("callerName") ?: ""
         val callerNumber = call.argument<String>("callerNumber")
-        val callerAvatar = call.argument<String>("callerAvatar")
+        val callerAvatarMap = call.argument<Map<String, Any?>>("callerAvatar")
+        val callerAvatar = callerAvatarMap?.get("url") as? String
         val callType = call.argument<String>("callType")
         val ringtone = call.argument<String>("ringtone")
         val timeoutMs = call.argument<Number>("timeoutMs")?.toLong() ?: 0L
@@ -591,6 +605,8 @@ class NotifyPilotPlugin :
         }
         val callerName = call.argument<String>("callerName") ?: ""
         val callerNumber = call.argument<String>("callerNumber")
+        val callerAvatarMap = call.argument<Map<String, Any?>>("callerAvatar")
+        val callerAvatar = callerAvatarMap?.get("url") as? String
         val callType = call.argument<String>("callType")
 
         callNotificationManager?.showOutgoingCall(
@@ -628,6 +644,8 @@ class NotifyPilotPlugin :
         }
         val callerName = call.argument<String>("callerName") ?: ""
         val callerNumber = call.argument<String>("callerNumber")
+        val callerAvatarMap = call.argument<Map<String, Any?>>("callerAvatar")
+        val callerAvatar = callerAvatarMap?.get("url") as? String
         val time = call.argument<Number>("time")?.toLong() ?: System.currentTimeMillis()
         val actions = call.argument<List<Map<String, Any?>>>("actions")
 

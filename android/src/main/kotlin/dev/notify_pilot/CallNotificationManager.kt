@@ -142,6 +142,13 @@ class CallNotificationManager(private val context: Context) {
                 declinePendingIntent
             )
 
+        if (callerAvatar != null) {
+            val bitmap = MediaDownloader.downloadSync(callerAvatar)
+            if (bitmap != null) {
+                builder.setLargeIcon(bitmap)
+            }
+        }
+
         notificationManager.notify(notificationId, builder.build())
 
         // Auto-decline timeout
@@ -336,7 +343,7 @@ class CallNotificationManager(private val context: Context) {
         if (actions != null) {
             for (action in actions) {
                 val actionId = action["id"] as? String ?: continue
-                val actionTitle = action["title"] as? String ?: continue
+                val actionTitle = action["label"] as? String ?: continue
 
                 val actionIntent = Intent(context, CallActionReceiver::class.java).apply {
                     this.action = "dev.notify_pilot.CALL_ACTION"

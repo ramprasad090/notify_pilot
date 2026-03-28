@@ -242,17 +242,42 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
         let identifier = String(notifId)
 
         displayManager.buildContent(from: args) { [weak self] content in
-            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
-            self?.center.add(request) { error in
-                DispatchQueue.main.async {
-                    if let error = error {
-                        NSLog("[NotifyPilot] Show error: \(error.localizedDescription)")
-                        result(FlutterError(code: "SHOW_ERROR", message: error.localizedDescription, details: nil))
-                    } else {
-                        // Record in history
-                        self?.recordHistory(args: args, id: notifId)
-                        result(notifId)
-                    }
+            // Configure interruption level for alarm/call channel types (v1.0.2)
+            let channelType = args["channelType"] as? String
+            if channelType == "alarm" || channelType == "call" {
+                self?.criticalAlertHelper.configureHighPriority(content: content) { configuredContent in
+                    self?.postNotification(identifier: identifier, content: configuredContent, args: args, notifId: notifId, result: result)
+                }
+            } else if let fullscreen = args["fullscreen"] as? Bool, fullscreen {
+                // Fullscreen intent: use time-sensitive on iOS 15+
+                if #available(iOS 15.0, *) {
+                    content.interruptionLevel = .timeSensitive
+                }
+                self?.postNotification(identifier: identifier, content: content, args: args, notifId: notifId, result: result)
+            } else {
+                self?.postNotification(identifier: identifier, content: content, args: args, notifId: notifId, result: result)
+            }
+        }
+    }
+
+    /// Posts the notification request to the notification center.
+    private func postNotification(
+        identifier: String,
+        content: UNMutableNotificationContent,
+        args: [String: Any],
+        notifId: Int,
+        result: @escaping FlutterResult
+    ) {
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+        center.add(request) { [weak self] error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    NSLog("[NotifyPilot] Show error: \(error.localizedDescription)")
+                    result(FlutterError(code: "SHOW_ERROR", message: error.localizedDescription, details: nil))
+                } else {
+                    // Record in history
+                    self?.recordHistory(args: args, id: notifId)
+                    result(notifId)
                 }
             }
         }

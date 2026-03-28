@@ -13,7 +13,7 @@ class CriticalAlertHelper {
     /// Cached result of the entitlement check.
     private var _isCriticalAlertEntitled: Bool?
 
-    private init() {}
+    init() {}
 
     // MARK: - Entitlement Detection
 
@@ -36,6 +36,11 @@ class CriticalAlertHelper {
                 completion(entitled)
             }
         }
+    }
+
+    /// Alias for `isCriticalAlertEntitled(completion:)` used by the plugin.
+    func checkEntitlement(completion: @escaping (Bool) -> Void) {
+        isCriticalAlertEntitled(completion: completion)
     }
 
     /// Resets the cached entitlement state. Useful after permission changes.
