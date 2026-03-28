@@ -18,7 +18,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
     private let historyStore = HistoryStore()
     private let fcmHandler = FcmHandler()
     private let permissionHelper = PermissionHelper()
-    private var liveActivityManager: Any? // LiveActivityManager (iOS 16.1+)
+    private var liveActivityManager: Any? // LiveActivityManager (iOS 16.2+)
     private var callKitManager: CallKitManager?
     private let pushKitManager = PushKitManager()
     private let callNotificationHelper = CallNotificationHelper()
@@ -538,7 +538,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
     // MARK: - Live Activity Handlers
 
     private func getOrCreateLiveActivityManager() -> LiveActivityManager? {
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
             if liveActivityManager == nil {
                 let manager = LiveActivityManager()
                 manager.onPushTokenUpdate = { [weak self] activityId, token in
@@ -566,10 +566,10 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
 
     private func handleStartLiveActivity(args: [String: Any], result: @escaping FlutterResult) {
         guard let manager = getOrCreateLiveActivityManager() else {
-            result(FlutterError(code: "UNSUPPORTED", message: "Live Activities require iOS 16.1+", details: nil))
+            result(FlutterError(code: "UNSUPPORTED", message: "Live Activities require iOS 16.2+", details: nil))
             return
         }
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
             (manager as LiveActivityManager).startActivity(
                 type: args["type"] as? String ?? "",
                 attributes: args["attributes"] as? [String: Any] ?? [:],
@@ -585,7 +585,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
             result(false)
             return
         }
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
             (manager as LiveActivityManager).updateActivity(
                 activityId: args["activityId"] as? String ?? "",
                 state: args["state"] as? [String: Any] ?? [:],
@@ -599,7 +599,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
             result(false)
             return
         }
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
             let dismissMap = args["dismissPolicy"] as? [String: Any] ?? [:]
             let dismissType = dismissMap["type"] as? String ?? "default"
             (manager as LiveActivityManager).endActivity(
@@ -616,7 +616,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
             result(false)
             return
         }
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
             (manager as LiveActivityManager).endAllActivities(
                 type: args["type"] as? String,
                 result: result
@@ -629,7 +629,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
             result(nil)
             return
         }
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
             let token = (manager as LiveActivityManager).getPushToken(
                 activityId: args["activityId"] as? String ?? ""
             )
@@ -638,7 +638,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
     }
 
     private func handleIsLiveActivitySupported(result: @escaping FlutterResult) {
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
             result(LiveActivityManager.isSupported())
         } else {
             result(false)
@@ -646,7 +646,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
     }
 
     private func handleHasDynamicIsland(result: @escaping FlutterResult) {
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
             result(LiveActivityManager.hasDynamicIsland())
         } else {
             result(false)
@@ -658,7 +658,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
             result([])
             return
         }
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
             result((manager as LiveActivityManager).getActiveActivities())
         }
     }
@@ -668,7 +668,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
             result("ended")
             return
         }
-        if #available(iOS 16.1, *) {
+        if #available(iOS 16.2, *) {
             let status = (manager as LiveActivityManager).getActivityStatus(
                 activityId: args["activityId"] as? String ?? ""
             )

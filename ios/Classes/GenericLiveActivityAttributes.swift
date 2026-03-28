@@ -4,7 +4,7 @@ import ActivityKit
 /// Generic ActivityAttributes that can carry arbitrary key-value data.
 /// Used by LiveActivityManager to support any Flutter-defined Live Activity
 /// without requiring compiled-in attribute types.
-@available(iOS 16.1, *)
+@available(iOS 16.2, *)
 struct GenericLiveActivityAttributes: ActivityAttributes {
 
     public struct ContentState: Codable, Hashable {

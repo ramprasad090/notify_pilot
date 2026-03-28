@@ -4,7 +4,7 @@ import ActivityKit
 /// Manages iOS Live Activities via ActivityKit.
 /// Supports starting, updating, ending, and querying Live Activities
 /// using GenericLiveActivityAttributes for Flutter interop.
-@available(iOS 16.1, *)
+@available(iOS 16.2, *)
 class LiveActivityManager {
 
     /// Callback invoked when a push token is updated for an activity.
@@ -295,7 +295,7 @@ class LiveActivityManager {
 
 // MARK: - ActivityState Extension
 
-@available(iOS 16.1, *)
+@available(iOS 16.2, *)
 private extension ActivityState {
     /// Returns a human-readable string representation of the activity state.
     var statusString: String {
