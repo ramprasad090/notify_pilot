@@ -246,7 +246,7 @@ class NotifyPilotPlugin :
         scheduleManager.scheduleAt(
             id, triggerAtMillis, title, body, channelId, groupKey, deepLink, payload, actionsJson
         )
-        result.success(true)
+        result.success(id)
     }
 
     private fun handleScheduleAfter(call: MethodCall, result: Result) {
@@ -263,7 +263,7 @@ class NotifyPilotPlugin :
         scheduleManager.scheduleAfter(
             id, delayMillis, title, body, channelId, groupKey, deepLink, payload, actionsJson
         )
-        result.success(true)
+        result.success(id)
     }
 
     private fun handleScheduleCron(call: MethodCall, result: Result) {
@@ -281,7 +281,7 @@ class NotifyPilotPlugin :
         scheduleManager.scheduleCron(
             id, triggerAtMillis, cronExpression, title, body, channelId, groupKey, deepLink, payload, actionsJson
         )
-        result.success(true)
+        result.success(id)
     }
 
     private fun handleCancel(call: MethodCall, result: Result) {
