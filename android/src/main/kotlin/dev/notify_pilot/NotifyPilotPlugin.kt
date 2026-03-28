@@ -376,11 +376,12 @@ class NotifyPilotPlugin :
         val requested = PermissionHelper.requestPermission(activity)
         if (!requested) {
             // Already granted or not needed
-            result.success(PermissionHelper.getPermissionStatus(activity))
+            val status = PermissionHelper.getPermissionStatus(activity)
+            result.success(status == "granted")
         } else {
-            // The permission dialog is shown; return notDetermined for now
+            // The permission dialog is shown; return false for now
             // Dart side should re-check with getPermission after user responds
-            result.success("notDetermined")
+            result.success(false)
         }
     }
 
