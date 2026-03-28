@@ -57,9 +57,13 @@ class CallKitManager: NSObject, CXProviderDelegate {
     ///
     /// - Parameter appName: The localized name displayed on the call UI.
     init(appName: String = Bundle.main.infoDictionary?["CFBundleDisplayName"] as? String ?? "App") {
-        let configuration = CXProviderConfiguration()
+        let configuration: CXProviderConfiguration
+        if #available(iOS 14.0, *) {
+            configuration = CXProviderConfiguration()
+        } else {
+            configuration = CXProviderConfiguration(localizedName: appName)
+        }
         configuration.supportsVideo = true
-        configuration.maximumCallsPerGroup = 1
         configuration.maximumCallGroups = 1
         configuration.supportedHandleTypes = [.phoneNumber, .generic]
         configuration.includesCallsInRecents = true
