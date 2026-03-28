@@ -850,7 +850,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
                     callId: callId,
                     callerName: callerName ?? "Unknown",
                     duration: nil
-                )
+                ) { _ in }
                 result(callId)
             }
         }
