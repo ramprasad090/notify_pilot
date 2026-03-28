@@ -52,7 +52,7 @@ class ActionHandler : BroadcastReceiver() {
                 val eventData = buildEventMap(notificationId, title, body, deepLink, payload, groupKey).apply {
                     put("actionId", actionId)
                     put("actionTitle", actionTitle)
-                    if (replyText != null) put("replyText", replyText)
+                    if (replyText != null) put("inputText", replyText)
                 }
 
                 // Cancel the notification after action
@@ -75,7 +75,7 @@ class ActionHandler : BroadcastReceiver() {
         groupKey: String?
     ): MutableMap<String, Any?> {
         return mutableMapOf(
-            "id" to id,
+            "notificationId" to id,
             "title" to title,
             "body" to body,
             "deepLink" to deepLink,
