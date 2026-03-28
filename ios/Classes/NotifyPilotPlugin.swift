@@ -570,7 +570,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
             return
         }
         if #available(iOS 16.2, *) {
-            (manager as LiveActivityManager).startActivity(
+            (manager as! LiveActivityManager).startActivity(
                 type: args["type"] as? String ?? "",
                 attributes: args["attributes"] as? [String: Any] ?? [:],
                 state: args["state"] as? [String: Any] ?? [:],
@@ -586,7 +586,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
             return
         }
         if #available(iOS 16.2, *) {
-            (manager as LiveActivityManager).updateActivity(
+            (manager as! LiveActivityManager).updateActivity(
                 activityId: args["activityId"] as? String ?? "",
                 state: args["state"] as? [String: Any] ?? [:],
                 result: result
@@ -602,7 +602,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
         if #available(iOS 16.2, *) {
             let dismissMap = args["dismissPolicy"] as? [String: Any] ?? [:]
             let dismissType = dismissMap["type"] as? String ?? "default"
-            (manager as LiveActivityManager).endActivity(
+            (manager as! LiveActivityManager).endActivity(
                 activityId: args["activityId"] as? String ?? "",
                 finalState: args["finalState"] as? [String: Any],
                 dismissPolicy: dismissType,
@@ -617,7 +617,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
             return
         }
         if #available(iOS 16.2, *) {
-            (manager as LiveActivityManager).endAllActivities(
+            (manager as! LiveActivityManager).endAllActivities(
                 type: args["type"] as? String,
                 result: result
             )
@@ -630,7 +630,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
             return
         }
         if #available(iOS 16.2, *) {
-            let token = (manager as LiveActivityManager).getPushToken(
+            let token = (manager as! LiveActivityManager).getPushToken(
                 activityId: args["activityId"] as? String ?? ""
             )
             result(token)
@@ -659,7 +659,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
             return
         }
         if #available(iOS 16.2, *) {
-            result((manager as LiveActivityManager).getActiveActivities())
+            result((manager as! LiveActivityManager).getActiveActivities())
         }
     }
 
@@ -669,7 +669,7 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
             return
         }
         if #available(iOS 16.2, *) {
-            let status = (manager as LiveActivityManager).getActivityStatus(
+            let status = (manager as! LiveActivityManager).getActivityStatus(
                 activityId: args["activityId"] as? String ?? ""
             )
             result(status)
@@ -707,10 +707,10 @@ public class NotifyPilotPlugin: NSObject, FlutterPlugin, UNUserNotificationCente
     private func handleSetMediaPlaybackState(args: [String: Any], result: @escaping FlutterResult) {
         let isPlaying = args["isPlaying"] as? Bool ?? false
         let positionMs = args["positionMs"] as? Int
-        mediaSessionHelper.updatePlaybackState(
-            isPlaying: isPlaying,
-            positionMs: positionMs
-        )
+        mediaSessionHelper.setPlaybackState(isPlaying ? "playing" : "paused")
+        if let ms = positionMs {
+            mediaSessionHelper.updatePlaybackPosition(position: Double(ms) / 1000.0)
+        }
         result(true)
     }
 
