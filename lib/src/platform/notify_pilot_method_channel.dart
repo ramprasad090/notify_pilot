@@ -194,4 +194,147 @@ class MethodChannelNotifyPilot extends NotifyPilotPlatform {
     final result = await _channel.invokeMethod<bool>('openSettings');
     return result ?? false;
   }
+
+  // ── Live Activities ──────────────────────────────────────────────
+
+  @override
+  Future<String> startLiveActivity(Map<String, dynamic> data) async {
+    final result =
+        await _channel.invokeMethod<String>('startLiveActivity', data);
+    return result ?? '';
+  }
+
+  @override
+  Future<bool> updateLiveActivity(Map<String, dynamic> data) async {
+    final result =
+        await _channel.invokeMethod<bool>('updateLiveActivity', data);
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> endLiveActivity(Map<String, dynamic> data) async {
+    final result =
+        await _channel.invokeMethod<bool>('endLiveActivity', data);
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> endAllLiveActivities(String? type) async {
+    final result = await _channel
+        .invokeMethod<bool>('endAllLiveActivities', {'type': type});
+    return result ?? false;
+  }
+
+  @override
+  Future<String?> getLiveActivityPushToken(String activityId) async {
+    return await _channel.invokeMethod<String?>(
+        'getLiveActivityPushToken', {'activityId': activityId});
+  }
+
+  @override
+  Future<bool> isLiveActivitySupported() async {
+    final result =
+        await _channel.invokeMethod<bool>('isLiveActivitySupported');
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> hasDynamicIsland() async {
+    final result = await _channel.invokeMethod<bool>('hasDynamicIsland');
+    return result ?? false;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getActiveLiveActivities() async {
+    final result =
+        await _channel.invokeListMethod<Map>('getActiveLiveActivities');
+    return result
+            ?.map((e) => e.cast<String, dynamic>())
+            .toList() ??
+        [];
+  }
+
+  @override
+  Future<String> getLiveActivityStatus(String activityId) async {
+    final result = await _channel.invokeMethod<String>(
+        'getLiveActivityStatus', {'activityId': activityId});
+    return result ?? 'ended';
+  }
+
+  // ── v1.0.2: Progress & Media ────────────────────────────────────
+
+  @override
+  Future<bool> updateProgress(Map<String, dynamic> data) async {
+    final result =
+        await _channel.invokeMethod<bool>('updateProgress', data);
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> setMediaPlaybackState(Map<String, dynamic> data) async {
+    final result =
+        await _channel.invokeMethod<bool>('setMediaPlaybackState', data);
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> hasCriticalAlertEntitlement() async {
+    final result =
+        await _channel.invokeMethod<bool>('hasCriticalAlertEntitlement');
+    return result ?? false;
+  }
+
+  // ── Caller Notifications ────────────────────────────────────────
+
+  @override
+  Future<bool> showIncomingCall(Map<String, dynamic> data) async {
+    final result =
+        await _channel.invokeMethod<bool>('showIncomingCall', data);
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> showOutgoingCall(Map<String, dynamic> data) async {
+    final result =
+        await _channel.invokeMethod<bool>('showOutgoingCall', data);
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> setCallConnected(String callId) async {
+    final result = await _channel
+        .invokeMethod<bool>('setCallConnected', {'callId': callId});
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> endCall(String callId) async {
+    final result =
+        await _channel.invokeMethod<bool>('endCall', {'callId': callId});
+    return result ?? false;
+  }
+
+  @override
+  Future<bool> showMissedCall(Map<String, dynamic> data) async {
+    final result =
+        await _channel.invokeMethod<bool>('showMissedCall', data);
+    return result ?? false;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getActiveCalls() async {
+    final result =
+        await _channel.invokeListMethod<Map>('getActiveCalls');
+    return result
+            ?.map((e) => e.cast<String, dynamic>())
+            .toList() ??
+        [];
+  }
+
+  @override
+  Future<bool> hideIncomingCall(String callId) async {
+    final result = await _channel
+        .invokeMethod<bool>('hideIncomingCall', {'callId': callId});
+    return result ?? false;
+  }
 }

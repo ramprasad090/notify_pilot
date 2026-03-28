@@ -32,6 +32,11 @@ class NotifyPilotPlugin :
     private lateinit var channelManager: ChannelManager
     private lateinit var scheduleManager: ScheduleManager
     private lateinit var historyStore: HistoryStore
+    private var liveNotificationManager: LiveNotificationManager? = null
+    private var alarmChannelHelper: AlarmChannelHelper? = null
+    private var styleBuilder: StyleBuilder? = null
+    private var mediaSessionHelper: MediaSessionHelper? = null
+    private var callNotificationManager: CallNotificationManager? = null
 
     companion object {
         private var staticChannel: MethodChannel? = null
@@ -73,6 +78,19 @@ class NotifyPilotPlugin :
         channelManager = ChannelManager(binding.applicationContext)
         scheduleManager = ScheduleManager(binding.applicationContext)
         historyStore = HistoryStore(binding.applicationContext)
+        liveNotificationManager = LiveNotificationManager(binding.applicationContext)
+        alarmChannelHelper = AlarmChannelHelper(binding.applicationContext)
+        styleBuilder = StyleBuilder(binding.applicationContext)
+        mediaSessionHelper = MediaSessionHelper(binding.applicationContext)
+        callNotificationManager = CallNotificationManager(binding.applicationContext)
+        callNotificationManager?.onCallEvent = { callId, event, data ->
+            val args = mutableMapOf<String, Any?>(
+                "callId" to callId,
+                "event" to event,
+            )
+            if (data != null) args.putAll(data)
+            invokeMethod("onCallEvent", args)
+        }
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -127,6 +145,28 @@ class NotifyPilotPlugin :
             "getUnreadCount" -> handleGetUnreadCount(result)
             "markRead" -> handleMarkRead(call, result)
             "openSettings" -> handleOpenSettings(result)
+            // Live Activities (ongoing notifications on Android)
+            "startLiveActivity" -> handleStartLiveActivity(call, result)
+            "updateLiveActivity" -> handleUpdateLiveActivity(call, result)
+            "endLiveActivity" -> handleEndLiveActivity(call, result)
+            "endAllLiveActivities" -> handleEndAllLiveActivities(call, result)
+            "getLiveActivityPushToken" -> result.success(null) // iOS only
+            "isLiveActivitySupported" -> result.success(true) // Always supported on Android
+            "hasDynamicIsland" -> result.success(false) // iOS only
+            "getActiveLiveActivities" -> handleGetActiveLiveActivities(result)
+            "getLiveActivityStatus" -> handleGetLiveActivityStatus(call, result)
+            // v1.0.2
+            "updateProgress" -> handleUpdateProgress(call, result)
+            "setMediaPlaybackState" -> handleSetMediaPlaybackState(call, result)
+            "hasCriticalAlertEntitlement" -> result.success(false) // iOS only
+            // Call notifications
+            "showIncomingCall" -> handleShowIncomingCall(call, result)
+            "showOutgoingCall" -> handleShowOutgoingCall(call, result)
+            "setCallConnected" -> handleSetCallConnected(call, result)
+            "endCall" -> handleEndCall(call, result)
+            "showMissedCall" -> handleShowMissedCall(call, result)
+            "getActiveCalls" -> handleGetActiveCalls(result)
+            "hideIncomingCall" -> handleHideIncomingCall(call, result)
             else -> result.notImplemented()
         }
     }
@@ -422,6 +462,193 @@ class NotifyPilotPlugin :
         }
         result.success(true)
     }
+
+    // region Live Activity Handlers
+
+    @Suppress("UNCHECKED_CAST")
+    private fun handleStartLiveActivity(call: MethodCall, result: Result) {
+        val id = call.argument<String>("type") ?: "live"
+        val config = call.argument<Map<String, Any>>("androidConfig") ?: emptyMap()
+        val state = call.argument<Map<String, Any>>("state") ?: emptyMap()
+        val activityId = liveNotificationManager?.startLiveNotification(id, config, state)
+        result.success(activityId ?: id)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun handleUpdateLiveActivity(call: MethodCall, result: Result) {
+        val activityId = call.argument<String>("activityId") ?: ""
+        val state = call.argument<Map<String, Any>>("state") ?: emptyMap()
+        liveNotificationManager?.updateLiveNotification(activityId, state)
+        result.success(true)
+    }
+
+    private fun handleEndLiveActivity(call: MethodCall, result: Result) {
+        val activityId = call.argument<String>("activityId") ?: ""
+        liveNotificationManager?.endLiveNotification(activityId)
+        result.success(true)
+    }
+
+    private fun handleEndAllLiveActivities(call: MethodCall, result: Result) {
+        val type = call.argument<String>("type")
+        liveNotificationManager?.endAllLiveNotifications(type)
+        result.success(true)
+    }
+
+    private fun handleGetActiveLiveActivities(result: Result) {
+        val activities = liveNotificationManager?.getActiveLiveNotifications() ?: emptyList()
+        result.success(activities)
+    }
+
+    private fun handleGetLiveActivityStatus(call: MethodCall, result: Result) {
+        val activityId = call.argument<String>("activityId") ?: ""
+        val status = liveNotificationManager?.getLiveNotificationStatus(activityId) ?: "ended"
+        result.success(status)
+    }
+
+    // endregion
+
+    // region v1.0.2 Handlers
+
+    private fun handleUpdateProgress(call: MethodCall, result: Result) {
+        val id = call.argument<Int>("id") ?: 0
+        val progress = call.argument<Double>("progress") ?: 0.0
+        val title = call.argument<String>("title")
+        val ongoing = call.argument<Boolean>("ongoing")
+
+        displayManager.show(
+            id = id,
+            title = title ?: "Downloading...",
+            body = "${(progress * 100).toInt()}% complete",
+            channelId = null,
+            groupKey = null,
+            imageUrl = null,
+            largeIconUrl = null,
+            deepLink = null,
+            payload = null,
+            actions = null,
+            autoCancel = !(ongoing ?: (progress < 1.0)),
+            ongoing = ongoing ?: (progress < 1.0),
+            silent = true,
+            summary = null,
+            inboxLines = null
+        )
+        result.success(true)
+    }
+
+    private fun handleSetMediaPlaybackState(call: MethodCall, result: Result) {
+        val isPlaying = call.argument<Boolean>("isPlaying") ?: false
+        val positionMs = call.argument<Number>("positionMs")?.toLong() ?: 0L
+        mediaSessionHelper?.updatePlaybackState(isPlaying, positionMs)
+        result.success(true)
+    }
+
+    // endregion
+
+    // region Call Notification Handlers
+
+    @Suppress("UNCHECKED_CAST")
+    private fun handleShowIncomingCall(call: MethodCall, result: Result) {
+        val callId = call.argument<String>("callId") ?: run {
+            result.error("INVALID_ARGS", "callId is required", null)
+            return
+        }
+        val callerName = call.argument<String>("callerName") ?: ""
+        val callerNumber = call.argument<String>("callerNumber")
+        val callerAvatar = call.argument<String>("callerAvatar")
+        val callType = call.argument<String>("callType")
+        val ringtone = call.argument<String>("ringtone")
+        val timeoutMs = call.argument<Number>("timeoutMs")?.toLong() ?: 0L
+        val acceptText = call.argument<String>("acceptText")
+        val declineText = call.argument<String>("declineText")
+        val extra = call.argument<Map<String, Any?>>("extra")
+
+        callNotificationManager?.showIncomingCall(
+            callId = callId,
+            callerName = callerName,
+            callerNumber = callerNumber,
+            callerAvatar = callerAvatar,
+            callType = callType,
+            ringtone = ringtone,
+            timeoutMs = timeoutMs,
+            acceptText = acceptText,
+            declineText = declineText,
+            extra = extra
+        )
+        result.success(true)
+    }
+
+    private fun handleShowOutgoingCall(call: MethodCall, result: Result) {
+        val callId = call.argument<String>("callId") ?: run {
+            result.error("INVALID_ARGS", "callId is required", null)
+            return
+        }
+        val callerName = call.argument<String>("callerName") ?: ""
+        val callerNumber = call.argument<String>("callerNumber")
+        val callType = call.argument<String>("callType")
+
+        callNotificationManager?.showOutgoingCall(
+            callId = callId,
+            callerName = callerName,
+            callerNumber = callerNumber,
+            callType = callType
+        )
+        result.success(true)
+    }
+
+    private fun handleSetCallConnected(call: MethodCall, result: Result) {
+        val callId = call.argument<String>("callId") ?: run {
+            result.error("INVALID_ARGS", "callId is required", null)
+            return
+        }
+        callNotificationManager?.setCallConnected(callId)
+        result.success(true)
+    }
+
+    private fun handleEndCall(call: MethodCall, result: Result) {
+        val callId = call.argument<String>("callId") ?: run {
+            result.error("INVALID_ARGS", "callId is required", null)
+            return
+        }
+        callNotificationManager?.endCall(callId)
+        result.success(true)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun handleShowMissedCall(call: MethodCall, result: Result) {
+        val callId = call.argument<String>("callId") ?: run {
+            result.error("INVALID_ARGS", "callId is required", null)
+            return
+        }
+        val callerName = call.argument<String>("callerName") ?: ""
+        val callerNumber = call.argument<String>("callerNumber")
+        val time = call.argument<Number>("time")?.toLong() ?: System.currentTimeMillis()
+        val actions = call.argument<List<Map<String, Any?>>>("actions")
+
+        callNotificationManager?.showMissedCall(
+            callId = callId,
+            callerName = callerName,
+            callerNumber = callerNumber,
+            time = time,
+            actions = actions
+        )
+        result.success(true)
+    }
+
+    private fun handleGetActiveCalls(result: Result) {
+        val calls = callNotificationManager?.getActiveCalls() ?: emptyList()
+        result.success(calls)
+    }
+
+    private fun handleHideIncomingCall(call: MethodCall, result: Result) {
+        val callId = call.argument<String>("callId") ?: run {
+            result.error("INVALID_ARGS", "callId is required", null)
+            return
+        }
+        callNotificationManager?.hideIncomingCall(callId)
+        result.success(true)
+    }
+
+    // endregion
 
     private fun handleOpenSettings(result: Result) {
         val ctx = applicationContext ?: run {

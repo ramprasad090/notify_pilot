@@ -147,4 +147,105 @@ abstract class NotifyPilotPlatform extends PlatformInterface {
   void setEventHandler(void Function(String type, Map<String, dynamic> data) handler) {
     throw UnimplementedError('setEventHandler() has not been implemented.');
   }
+
+  // ── Live Activities ──────────────────────────────────────────────
+
+  /// Start a Live Activity (iOS) or ongoing notification (Android).
+  Future<String> startLiveActivity(Map<String, dynamic> data) {
+    throw UnimplementedError('startLiveActivity() has not been implemented.');
+  }
+
+  /// Update a Live Activity's dynamic state.
+  Future<bool> updateLiveActivity(Map<String, dynamic> data) {
+    throw UnimplementedError('updateLiveActivity() has not been implemented.');
+  }
+
+  /// End a Live Activity.
+  Future<bool> endLiveActivity(Map<String, dynamic> data) {
+    throw UnimplementedError('endLiveActivity() has not been implemented.');
+  }
+
+  /// End all Live Activities of a given type.
+  Future<bool> endAllLiveActivities(String? type) {
+    throw UnimplementedError('endAllLiveActivities() has not been implemented.');
+  }
+
+  /// Get the push token for a Live Activity (iOS only).
+  Future<String?> getLiveActivityPushToken(String activityId) {
+    throw UnimplementedError('getLiveActivityPushToken() has not been implemented.');
+  }
+
+  /// Check if Live Activities are supported on this device.
+  Future<bool> isLiveActivitySupported() {
+    throw UnimplementedError('isLiveActivitySupported() has not been implemented.');
+  }
+
+  /// Check if Dynamic Island is available on this device.
+  Future<bool> hasDynamicIsland() {
+    throw UnimplementedError('hasDynamicIsland() has not been implemented.');
+  }
+
+  /// Get all currently active Live Activities.
+  Future<List<Map<String, dynamic>>> getActiveLiveActivities() {
+    throw UnimplementedError('getActiveLiveActivities() has not been implemented.');
+  }
+
+  /// Get the status of a specific Live Activity.
+  Future<String> getLiveActivityStatus(String activityId) {
+    throw UnimplementedError('getLiveActivityStatus() has not been implemented.');
+  }
+
+  // ── v1.0.2: Progress & Media ────────────────────────────────────
+
+  /// Update a progress notification.
+  Future<bool> updateProgress(Map<String, dynamic> data) {
+    throw UnimplementedError('updateProgress() has not been implemented.');
+  }
+
+  /// Update media playback state.
+  Future<bool> setMediaPlaybackState(Map<String, dynamic> data) {
+    throw UnimplementedError('setMediaPlaybackState() has not been implemented.');
+  }
+
+  /// Check if iOS Critical Alert entitlement is available.
+  Future<bool> hasCriticalAlertEntitlement() {
+    throw UnimplementedError('hasCriticalAlertEntitlement() has not been implemented.');
+  }
+
+  // ── Caller Notifications ────────────────────────────────────────
+
+  /// Show an incoming call notification/screen.
+  Future<bool> showIncomingCall(Map<String, dynamic> data) {
+    throw UnimplementedError('showIncomingCall() has not been implemented.');
+  }
+
+  /// Show an outgoing call notification.
+  Future<bool> showOutgoingCall(Map<String, dynamic> data) {
+    throw UnimplementedError('showOutgoingCall() has not been implemented.');
+  }
+
+  /// Mark a call as connected (switch to ongoing call UI).
+  Future<bool> setCallConnected(String callId) {
+    throw UnimplementedError('setCallConnected() has not been implemented.');
+  }
+
+  /// End a call.
+  Future<bool> endCall(String callId) {
+    throw UnimplementedError('endCall() has not been implemented.');
+  }
+
+  /// Show a missed call notification.
+  Future<bool> showMissedCall(Map<String, dynamic> data) {
+    throw UnimplementedError('showMissedCall() has not been implemented.');
+  }
+
+  /// Get all active calls.
+  Future<List<Map<String, dynamic>>> getActiveCalls() {
+    throw UnimplementedError('getActiveCalls() has not been implemented.');
+  }
+
+  /// Hide an incoming call notification (e.g., caller cancelled).
+  Future<bool> hideIncomingCall(String callId) {
+    throw UnimplementedError('hideIncomingCall() has not been implemented.');
+  }
 }

@@ -8,6 +8,9 @@ import 'screens/channels_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/push_screen.dart';
 import 'screens/widgets_screen.dart';
+import 'screens/live_activity_screen.dart';
+import 'screens/styles_screen.dart';
+import 'screens/caller_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +30,9 @@ void main() async {
           id: 'reminders',
           name: 'Reminders',
           importance: NotifyImportance.max),
+      const NotifyChannel.alarm(id: 'alarms', name: 'Alarms'),
+      const NotifyChannel.timer(id: 'timers', name: 'Timers'),
+      const NotifyChannel.call(id: 'calls', name: 'Calls'),
     ],
     onTap: (event) {
       debugPrint('Notification tapped: ${event.title} → ${event.deepLink}');
@@ -107,6 +113,24 @@ class HomeScreen extends StatelessWidget {
         title: 'Widgets',
         subtitle: 'Banner, badge, inbox',
         builder: (_) => const WidgetsScreen(),
+      ),
+      _DemoItem(
+        icon: Icons.play_circle,
+        title: 'Live Activities',
+        subtitle: 'Ride tracking, delivery, Dynamic Island',
+        builder: (_) => const LiveActivityScreen(),
+      ),
+      _DemoItem(
+        icon: Icons.style,
+        title: 'Styles & Media',
+        subtitle: 'BigText, BigPicture, Inbox, Progress, Alarms',
+        builder: (_) => const StylesScreen(),
+      ),
+      _DemoItem(
+        icon: Icons.phone,
+        title: 'Caller Notifications',
+        subtitle: 'Incoming, outgoing, missed calls',
+        builder: (_) => const CallerScreen(),
       ),
     ];
 

@@ -6,15 +6,25 @@
 library;
 
 // API
+export 'src/api/call_types.dart';
 export 'src/api/enums.dart';
 export 'src/api/fcm_config.dart';
 export 'src/api/history_config.dart';
+export 'src/api/live_activity_config.dart';
+export 'src/api/live_activity_event.dart';
+export 'src/api/live_activity_info.dart';
 export 'src/api/notify_action.dart';
 export 'src/api/notify_action_event.dart';
 export 'src/api/notify_analytics.dart';
 export 'src/api/notify_channel.dart';
+export 'src/api/notify_display_style.dart';
 export 'src/api/notify_history_entry.dart';
+export 'src/api/notify_icon.dart';
+export 'src/api/notify_image.dart';
+export 'src/api/notify_message.dart';
+export 'src/api/notify_person.dart';
 export 'src/api/notify_pilot_api.dart';
+export 'src/api/notify_sound.dart';
 export 'src/api/notify_style.dart';
 export 'src/api/notify_tap_event.dart';
 export 'src/api/push_message.dart';

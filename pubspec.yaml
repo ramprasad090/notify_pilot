@@ -3,7 +3,7 @@ description: >-
   Unified notification API for Flutter. Local + push + scheduled
   notifications in 3 lines. Cron scheduling, auto-grouping,
   notification history, action buttons, analytics.
-version: 1.0.0
+version: 1.0.2
 homepage: https://github.com/ramprasad090/notify_pilot
 repository: https://github.com/ramprasad090/notify_pilot
 
@@ -13,6 +13,7 @@ topics:
   - fcm
   - local-notifications
   - scheduled-notifications
+  - live-activities
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
