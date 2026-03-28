@@ -190,14 +190,19 @@ class NotificationDisplayManager {
         }
 
         // Process displayStyle (v1.0.2)
+        NSLog("[NotifyPilot] displayStyle raw: \(String(describing: args["displayStyle"]))")
         if let displayStyle = args["displayStyle"] as? [String: Any],
            let dsType = displayStyle["type"] as? String {
+            NSLog("[NotifyPilot] displayStyle type: \(dsType)")
             switch dsType {
             case "bigPicture":
+                NSLog("[NotifyPilot] bigPicture picture raw: \(String(describing: displayStyle["picture"]))")
                 if let pictureMap = displayStyle["picture"] as? [String: Any],
                    let urlString = pictureMap["url"] as? String,
                    let url = URL(string: urlString) {
+                    NSLog("[NotifyPilot] Downloading bigPicture from: \(urlString)")
                     mediaDownloader.downloadAttachment(from: url) { attachment in
+                        NSLog("[NotifyPilot] bigPicture attachment: \(String(describing: attachment))")
                         if let attachment = attachment {
                             content.attachments = [attachment]
                         }
@@ -205,6 +210,7 @@ class NotificationDisplayManager {
                     }
                     return // async path - completion called above
                 }
+                NSLog("[NotifyPilot] bigPicture: failed to extract picture URL")
             case "bigText":
                 // iOS shows full text naturally in expanded notification view
                 if let bigText = displayStyle["bigText"] as? String {
