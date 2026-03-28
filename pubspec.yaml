@@ -1,0 +1,39 @@
+name: notify_pilot
+description: >-
+  Unified notification API for Flutter. Local + push + scheduled
+  notifications in 3 lines. Cron scheduling, auto-grouping,
+  notification history, action buttons, analytics.
+version: 1.0.0
+homepage: https://github.com/ramprasad090/notify_pilot
+repository: https://github.com/ramprasad090/notify_pilot
+
+topics:
+  - notifications
+  - push-notifications
+  - fcm
+  - local-notifications
+  - scheduled-notifications
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: '>=3.22.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  plugin_platform_interface: ^2.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  mocktail: ^1.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: dev.notify_pilot
+        pluginClass: NotifyPilotPlugin
+      ios:
+        pluginClass: NotifyPilotPlugin
