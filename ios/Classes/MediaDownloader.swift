@@ -73,17 +73,33 @@ class MediaDownloader {
     ///   - url: The remote URL to download from.
     ///   - completion: Called with the attachment on success, or nil on failure.
     func downloadAttachment(from url: URL, completion: @escaping (UNNotificationAttachment?) -> Void) {
-        downloadImage(from: url) { localURL in
-            guard let localURL = localURL else {
+        NSLog("[NotifyPilot] MediaDownloader: Downloading attachment from \(url.absoluteString)")
+
+        let task = URLSession.shared.downloadTask(with: url) { localURL, response, error in
+            guard let localURL = localURL, error == nil else {
+                NSLog("[NotifyPilot] MediaDownloader: Download failed: \(error?.localizedDescription ?? "unknown")")
                 completion(nil)
                 return
             }
 
+            // Determine correct extension from MIME type
+            var ext = ".jpg"
+            if let mimeType = response?.mimeType {
+                switch mimeType {
+                case "image/png": ext = ".png"
+                case "image/gif": ext = ".gif"
+                case "image/webp": ext = ".webp"
+                default: ext = ".jpg"
+                }
+            }
+
+            let tempDir = FileManager.default.temporaryDirectory
+            let tempFile = tempDir.appendingPathComponent(UUID().uuidString + ext)
+
             do {
-                // UNNotificationAttachment moves the file, so copy to a temp path first
-                // to preserve the cache
-                let tempDir = FileManager.default.temporaryDirectory
-                let tempFile = tempDir.appendingPathComponent(UUID().uuidString + "." + (localURL.pathExtension.isEmpty ? "jpg" : localURL.pathExtension))
+                if FileManager.default.fileExists(atPath: tempFile.path) {
+                    try FileManager.default.removeItem(at: tempFile)
+                }
                 try FileManager.default.copyItem(at: localURL, to: tempFile)
 
                 let attachment = try UNNotificationAttachment(
@@ -91,12 +107,14 @@ class MediaDownloader {
                     url: tempFile,
                     options: nil
                 )
+                NSLog("[NotifyPilot] MediaDownloader: Attachment created successfully")
                 completion(attachment)
             } catch {
                 NSLog("[NotifyPilot] MediaDownloader: Failed to create attachment: \(error.localizedDescription)")
                 completion(nil)
             }
         }
+        task.resume()
     }
 
     // MARK: - Cache Management
